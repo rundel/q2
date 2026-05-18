@@ -101,3 +101,183 @@ div.txt: 5 Interruption closes many many blocks
                       (pandoc_paragraph
                         (pandoc_str)
                         (block_continuation)))))))))))
+================================================================================
+div.txt: 6 Heading inside div with closing :::
+================================================================================
+::: {.outer}
+## A
+:::
+--------------------------------------------------------------------------------
+    (document
+      (section
+        (pandoc_div
+          (attribute_specifier
+            (commonmark_specifier
+              (attribute_class)))
+          (block_continuation)
+          (section
+            (atx_heading
+              (atx_h2_marker)
+              (pandoc_str)
+              (block_continuation))))))
+================================================================================
+div.txt: 7 Heading inside div followed by nested div with attributes (regression from PR #208)
+================================================================================
+::: {.outer}
+## A
+:::{layout="2"}
+:::
+:::
+--------------------------------------------------------------------------------
+    (document
+      (section
+        (pandoc_div
+          (attribute_specifier
+            (commonmark_specifier
+              (attribute_class)))
+          (block_continuation)
+          (section
+            (atx_heading
+              (atx_h2_marker)
+              (pandoc_str)
+              (block_continuation))
+            (pandoc_div
+              (attribute_specifier
+                (commonmark_specifier
+                  (key_value_specifier
+                    (key_value_key)
+                    (key_value_value))))
+              (block_continuation)
+              (block_continuation))))))
+================================================================================
+div.txt: 8 Exact bug-notes repro - heading + nested div with attrs and blank lines (regression from PR #208)
+================================================================================
+::: {.outer}
+
+## A
+
+:::{layout="2"}
+:::
+
+:::
+--------------------------------------------------------------------------------
+    (document
+      (section
+        (pandoc_div
+          (attribute_specifier
+            (commonmark_specifier
+              (attribute_class)))
+          (block_continuation)
+          (block_continuation)
+          (section
+            (atx_heading
+              (atx_h2_marker)
+              (pandoc_str)
+              (block_continuation))
+            (block_continuation)
+            (pandoc_div
+              (attribute_specifier
+                (commonmark_specifier
+                  (key_value_specifier
+                    (key_value_key)
+                    (key_value_value))))
+              (block_continuation)
+              (block_continuation))
+            (block_continuation)))))
+================================================================================
+div.txt: 9 Paragraph then nested div with attributes inside outer div (regression from PR #208)
+================================================================================
+::: {.outer}
+text
+
+:::{layout="2"}
+:::
+:::
+--------------------------------------------------------------------------------
+    (document
+      (section
+        (pandoc_div
+          (attribute_specifier
+            (commonmark_specifier
+              (attribute_class)))
+          (block_continuation)
+          (pandoc_paragraph
+            (pandoc_str)
+            (block_continuation))
+          (block_continuation)
+          (pandoc_div
+            (attribute_specifier
+              (commonmark_specifier
+                (key_value_specifier
+                  (key_value_key)
+                  (key_value_value))))
+            (block_continuation)
+            (block_continuation)))))
+================================================================================
+div.txt: 10 Heading then nested div with class attribute and content (regression from PR #208)
+================================================================================
+::: {.outer}
+## A
+:::{.inner}
+inner text
+:::
+:::
+--------------------------------------------------------------------------------
+    (document
+      (section
+        (pandoc_div
+          (attribute_specifier
+            (commonmark_specifier
+              (attribute_class)))
+          (block_continuation)
+          (section
+            (atx_heading
+              (atx_h2_marker)
+              (pandoc_str)
+              (block_continuation))
+            (pandoc_div
+              (attribute_specifier
+                (commonmark_specifier
+                  (attribute_class)))
+              (block_continuation)
+              (pandoc_paragraph
+                (pandoc_str)
+                (pandoc_space)
+                (pandoc_str)
+                (block_continuation))
+              (block_continuation))))))
+================================================================================
+div.txt: 11 Two sibling headings then nested div with attributes (regression from PR #208)
+================================================================================
+::: {.outer}
+## A
+## B
+:::{layout="2"}
+:::
+:::
+--------------------------------------------------------------------------------
+    (document
+      (section
+        (pandoc_div
+          (attribute_specifier
+            (commonmark_specifier
+              (attribute_class)))
+          (block_continuation)
+          (section
+            (atx_heading
+              (atx_h2_marker)
+              (pandoc_str)
+              (block_continuation)))
+          (section
+            (atx_heading
+              (atx_h2_marker)
+              (pandoc_str)
+              (block_continuation))
+            (pandoc_div
+              (attribute_specifier
+                (commonmark_specifier
+                  (key_value_specifier
+                    (key_value_key)
+                    (key_value_value))))
+              (block_continuation)
+              (block_continuation))))))

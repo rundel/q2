@@ -1,0 +1,6 @@
+---
+source: crates/pampa/tests/test.rs
+assertion_line: 362
+expression: output
+---
+[ Div ( "" , ["outer"] , [] ) [Header 2 ( "a" , [] , [] ) [Str "A"], Div ( "" , [] , [("layout", "2")] ) []] ]
