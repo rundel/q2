@@ -16,7 +16,6 @@ function DevHarnessLazy({ page }: { page: string }) {
 import Editor from './components/Editor';
 import Toast from './components/Toast';
 import { ViewModeProvider } from './components/ViewModeContext';
-import { ThemeProvider } from './components/ThemeContext';
 import { LoginScreen } from './components/auth/LoginScreen';
 import {
   connect,
@@ -568,11 +567,7 @@ function App() {
   // Dev harness: render components in isolation for visual testing.
   // Only available in development builds; the DevRoute type is never parsed in production.
   if (route.type === 'dev') {
-    return (
-      <ThemeProvider>
-        <DevHarnessLazy page={route.page} />
-      </ThemeProvider>
-    );
+    return <DevHarnessLazy page={route.page} />;
   }
 
   // Show project set setup/migration screen if needed
@@ -611,7 +606,7 @@ function App() {
   }
 
   return (
-    <ThemeProvider>
+    <>
       {!project ? (
         <ProjectSelector
           onSelectProject={handleSelectProject}
@@ -654,7 +649,7 @@ function App() {
         visible={showSaveToast}
         onHide={() => setShowSaveToast(false)}
       />
-    </ThemeProvider>
+    </>
   );
 }
 

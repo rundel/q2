@@ -724,6 +724,28 @@
     "since_version": "99.9.9"
   },
 
+  "Q-5-1": {
+    "subsystem": "project",
+    "title": "Resource Path Resolves Outside the Project Root",
+    "message_template": "A `resources:` pattern in `_quarto.yml` or a document frontmatter resolves to a path outside the project root. Project resources must live within the project directory. A leading `/` is treated as project-root-relative, e.g. `/docs/foo.json` means `<project>/docs/foo.json`.",
+    "docs_url": "https://quarto.org/docs/errors/Q-5-1",
+    "since_version": "99.9.9"
+  },
+  "Q-5-2": {
+    "subsystem": "project",
+    "title": "Invalid Glob Pattern in `resources:`",
+    "message_template": "A `resources:` glob pattern in `_quarto.yml` or a document frontmatter is malformed and could not be parsed as a glob.",
+    "docs_url": "https://quarto.org/docs/errors/Q-5-2",
+    "since_version": "99.9.9"
+  },
+  "Q-5-3": {
+    "subsystem": "project",
+    "title": "Failed Walking Glob Matches for `resources:`",
+    "message_template": "An I/O error occurred while enumerating files that match a `resources:` glob.",
+    "docs_url": "https://quarto.org/docs/errors/Q-5-3",
+    "since_version": "99.9.9"
+  },
+
   "Q-7-1": {
     "subsystem": "cli",
     "title": "Missing Newline at End of File",

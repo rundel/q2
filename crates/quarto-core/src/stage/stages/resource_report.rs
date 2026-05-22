@@ -92,26 +92,30 @@ impl PipelineStage for ResourceReportStage {
         // no project_index, so we treat the snapshot as empty and
         // just publish whatever post-filter meta says.
         let project_rel = doc.path.strip_prefix(&ctx.project.dir).unwrap_or(&doc.path);
+        // Snapshot is bare strings: filters mutate meta as plain text
+        // and the delta is computed on pattern strings, not on
+        // pattern + source-info pairs. (bd-c1et2 added source-info to
+        // the underlying type; we still compare on pattern.)
         let snapshot: Vec<String> = ctx
             .project_index
             .as_ref()
             .and_then(|idx| idx.lookup_by_source(project_rel))
-            .map(|p| p.resources.clone())
+            .map(|p| p.resources.iter().map(|r| r.pattern.clone()).collect())
             .unwrap_or_default();
 
         // Compute additions (in post-filter, not in snapshot) and
         // removals (in snapshot, not in post-filter). Removals are
         // already defended structurally because the static-channel
         // collector reads `profile.resources` directly.
-        let mut additions = Vec::new();
-        let mut removals = Vec::new();
+        let mut additions: Vec<String> = Vec::new();
+        let mut removals: Vec<String> = Vec::new();
         for entry in &post_filter {
-            if !snapshot.contains(entry) {
-                additions.push(entry.clone());
+            if !snapshot.contains(&entry.pattern) {
+                additions.push(entry.pattern.clone());
             }
         }
         for entry in &snapshot {
-            if !post_filter.contains(entry) {
+            if !post_filter.iter().any(|r| &r.pattern == entry) {
                 removals.push(entry.clone());
             }
         }
@@ -187,7 +191,10 @@ mod tests {
             .strip_prefix(&project.dir)
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|_| doc_path.clone());
-        profile.resources = snapshot;
+        profile.resources = snapshot
+            .into_iter()
+            .map(crate::project_resources::RawResourcePattern::without_source)
+            .collect();
         let index = ProjectIndex::new(vec![profile]);
         let runtime: Arc<dyn quarto_system_runtime::SystemRuntime> =
             Arc::new(quarto_system_runtime::NativeRuntime::new());

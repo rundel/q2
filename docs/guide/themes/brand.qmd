@@ -11,9 +11,8 @@ Quarto projects can be themed via three knobs that compose:
    and logo.
 3. One or more custom `.scss` files with additional overrides.
 
-The `theme:` array picks which of these contribute to the final CSS,
-and **the order of entries controls precedence** — later entries
-override earlier ones.
+The `theme:` array picks which of these contribute to the final CSS.
+Their order controls precedence: later entries override earlier ones.
 
 ## A worked example
 
@@ -42,8 +41,9 @@ typography:
     family: Georgia
 ```
 
-Renders with `cosmo` as the base palette, brand colors / typography
-overlaid on top, and any rules from `extras.scss` last.
+This configuration renders with `cosmo` as the base palette, brand
+colors and typography overlaid on top, and any rules from
+`extras.scss` applied last.
 
 ## The `brand` token
 

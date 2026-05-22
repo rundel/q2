@@ -50,7 +50,14 @@ use thiserror::Error;
 ///   listing host to its content files, so Mode B (`quarto render
 ///   posts/foo.qmd`) automatically pulls in listing hosts when any of
 ///   their content files are targeted.
-pub const DOCUMENT_PROFILE_VERSION: u32 = 5;
+/// - `6`: `bd-c1et2`. Changes `resources` from `Vec<String>` to
+///   `Vec<RawResourcePattern>` so each pattern carries its YAML
+///   `SourceInfo`. Diagnostics for out-of-project / invalid-glob /
+///   glob-walk errors can now render an Ariadne span pointing at the
+///   offending scalar. v5 serialized profiles will fail to
+///   deserialize at the field level; cached frozen profiles need to
+///   be regenerated.
+pub const DOCUMENT_PROFILE_VERSION: u32 = 6;
 
 /// Depth used when extracting the heading outline at the profile
 /// checkpoint.
@@ -380,7 +387,8 @@ pub struct DocumentProfile {
     pub body_link_targets: Vec<PathBuf>,
 
     /// Document-level `resources:` patterns from YAML frontmatter
-    /// (`bd-o8pr`). Raw patterns; expansion happens at the post-
+    /// (`bd-o8pr`). Raw patterns plus the YAML source location each
+    /// one came from (`bd-c1et2`); expansion happens at the post-
     /// render collector. This is the *snapshot* of what the author
     /// declared at frontmatter-freeze time — engines and Lua
     /// filters that run later contribute through a separate channel
@@ -388,9 +396,10 @@ pub struct DocumentProfile {
     /// this list. See plan §"Resolved design principles".
     ///
     /// Default empty; serializer omits empty lists. Bump from v2 →
-    /// v3.
+    /// v3. Shape changed in v6 (`bd-c1et2`) from `Vec<String>` to
+    /// `Vec<RawResourcePattern>`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub resources: Vec<String>,
+    pub resources: Vec<crate::project_resources::RawResourcePattern>,
 
     /// Tagged form of the top-level `categories:` value as written
     /// by the author. Mirrors [`Self::categories`] but preserves
@@ -1444,8 +1453,8 @@ Body.
     }
 
     #[test]
-    fn document_profile_version_is_5() {
-        assert_eq!(DOCUMENT_PROFILE_VERSION, 5);
+    fn document_profile_version_is_6() {
+        assert_eq!(DOCUMENT_PROFILE_VERSION, 6);
     }
 
     /// A v3 profile (the pre-listings shape) must be rejected by

@@ -622,9 +622,11 @@ impl<'a, R: Pass2Renderer> ProjectPipeline<'a, R> {
         // dir.
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let mut resolved =
-                crate::project_resources::collect_static_resources(self.project, &index)
-                    .map_err(|e| QuartoError::other(e.to_string()))?;
+            let mut resolved = crate::project_resources::collect_static_resources_with_diagnostics(
+                self.project,
+                &index,
+            )
+            .map_err(QuartoError::Parse)?;
             for output in &outputs {
                 if let Some(report) = R::extract_resource_report(output) {
                     if report.is_empty() {

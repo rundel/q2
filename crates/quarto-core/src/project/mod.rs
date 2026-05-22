@@ -315,11 +315,15 @@ pub struct ProjectConfig {
 
     /// Project-level `project.resources:` patterns (`bd-o8pr`).
     ///
-    /// Raw patterns from `_quarto.yml`; glob expansion happens at
-    /// project-render time. See
-    /// [`crate::project_resources`] for the resolution helpers.
+    /// Raw patterns from `_quarto.yml` plus the YAML source location
+    /// each one came from (`bd-c1et2`); glob expansion happens at
+    /// project-render time. See [`crate::project_resources`] for the
+    /// resolution helpers. The per-entry `source_info` is forwarded
+    /// into [`crate::project_resources::ResourceError`] variants so a
+    /// failed pattern can be rendered as a tidyverse-style diagnostic
+    /// pointing at the offending YAML scalar.
     /// Empty when `project.resources` is absent.
-    pub resources: Vec<String>,
+    pub resources: Vec<crate::project_resources::RawResourcePattern>,
 
     /// Full project metadata as ConfigValue with source tracking.
     ///
@@ -330,6 +334,15 @@ pub struct ProjectConfig {
     /// Format-specific settings (e.g., `format.html.toc`) are extracted using
     /// `quarto_config::resolve_format_config()` before merging.
     pub metadata: Option<ConfigValue>,
+
+    /// Absolute path of the `_quarto.yml` (or `_quarto.yaml`) file
+    /// this config was parsed from (`bd-c1et2`).
+    ///
+    /// `None` for default-constructed configs (single-file renders,
+    /// tests). The path is used by the resource-error diagnostic
+    /// path to load the YAML content into a [`SourceContext`] so
+    /// Ariadne can render a source snippet for the offending scalar.
+    pub config_path: Option<PathBuf>,
 }
 
 impl ProjectConfig {
@@ -618,6 +631,7 @@ impl ProjectContext {
             render_patterns,
             resources,
             metadata: Some(metadata),
+            config_path: Some(path.to_path_buf()),
         })
     }
 

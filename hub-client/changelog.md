@@ -15,6 +15,10 @@ be in reverse chronological order (latest first).
 
 -->
 
+### 2026-05-21
+
+- [`6c84696d`](https://github.com/quarto-dev/q2/commits/6c84696d): Login screen and post-logout view now respect the saved `colorScheme` preference (and system `prefers-color-scheme`) instead of always rendering light on first visit and inheriting the previous session's class after logout.
+
 ### 2026-05-15
 
 - [`e9399093`](https://github.com/quarto-dev/q2/commits/e9399093): Authorship pill in the replay bar now animates with a rotating rainbow border while attribution data is being generated, so large documents give visible feedback that work is happening before the colours appear in the preview.
