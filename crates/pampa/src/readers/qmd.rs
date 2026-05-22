@@ -47,6 +47,136 @@ pub fn read_bad_qmd_for_error_message(input_bytes: &[u8]) -> Vec<String> {
     produce_error_message_json(&log_observer)
 }
 
+/// Mask the prefix `[0, until)` of `input` by replacing every byte that is not
+/// a line break with a space, keeping `\n`/`\r` untouched. This preserves the
+/// total length, every byte offset, and every row number, so the masked prefix
+/// parses as a run of blank lines and the first still-live block after `until`
+/// becomes the document's first block. Diagnostics from re-parsing the masked
+/// buffer therefore land at absolute positions with no offset rebasing.
+fn mask_prefix(input: &[u8], until: usize) -> Vec<u8> {
+    let mut out = input.to_vec();
+    let end = until.min(out.len());
+    for b in &mut out[..end] {
+        if *b != b'\n' && *b != b'\r' {
+            *b = b' ';
+        }
+    }
+    out
+}
+
+/// Find the resync offset after `from`: the start of the line following the
+/// next blank (whitespace-only) line at or after `from`. Returns `None` when no
+/// blank line follows `from` (the error was in the document's last block).
+///
+/// A blank line is a safe block boundary for the unclosed-inline family this
+/// targets, since inline constructs only occur in paragraph-like content. It is
+/// a heuristic for constructs that may legitimately contain blank lines (fenced
+/// code, lazy continuations); see the plan note in
+/// `claude-notes/plans/2026-05-21-downstream-block-diagnostics-reparse.md`.
+fn next_block_start_after(input: &[u8], from: usize) -> Option<usize> {
+    let n = input.len();
+    let mut line_start = from.min(n);
+    while line_start < n {
+        let mut j = line_start;
+        while j < n && input[j] != b'\n' {
+            j += 1;
+        }
+        let blank = input[line_start..j]
+            .iter()
+            .all(|&b| b == b' ' || b == b'\t' || b == b'\r');
+        if blank {
+            return if j < n { Some(j + 1) } else { None };
+        }
+        if j >= n {
+            return None;
+        }
+        line_start = j + 1;
+    }
+    None
+}
+
+/// Collect one diagnostic for each failing block *after* the first one.
+///
+/// Tree-sitter stops at the first unrecoverable error and skips the rest of the
+/// document to EOF, so later blocks would otherwise be silent. Starting just
+/// past the first error's block, we repeatedly mask the handled prefix (see
+/// [`mask_prefix`]), re-parse, take the earliest diagnostic in the newly-live
+/// region, then advance past that block. Each iteration surfaces one block's
+/// first error; multiple errors within a single block remain out of scope.
+fn collect_downstream_diagnostics(
+    input_bytes: &[u8],
+    first_error_anchor: usize,
+    filename: &str,
+    source_context: &quarto_source_map::SourceContext,
+) -> Vec<quarto_error_reporting::DiagnosticMessage> {
+    let mut collected: Vec<quarto_error_reporting::DiagnosticMessage> = Vec::new();
+    let mut resync = match next_block_start_after(input_bytes, first_error_anchor) {
+        Some(o) => o,
+        None => return collected,
+    };
+    // Safety bound: at most one iteration per line.
+    let max_iters = input_bytes.iter().filter(|&&b| b == b'\n').count() + 1;
+    for _ in 0..max_iters {
+        if resync >= input_bytes.len() {
+            break;
+        }
+        let masked = mask_prefix(input_bytes, resync);
+
+        let mut parser = MarkdownParser::default();
+        let mut fast = quarto_parse_errors::TreeSitterLogObserverFast::default();
+        parser.parser.set_logger(Some(Box::new(|log_type, message| {
+            if log_type == LogType::Parse {
+                fast.log(log_type, message);
+            }
+        })));
+        parser.parse(&masked, None).expect("Failed to parse input");
+        if !fast.had_errors() {
+            break;
+        }
+
+        let mut full = quarto_parse_errors::TreeSitterLogObserver::default();
+        parser.parser.set_logger(Some(Box::new(|log_type, message| {
+            if log_type == LogType::Parse {
+                full.log(log_type, message);
+            }
+        })));
+        parser.parse(&masked, None).expect("Failed to parse input");
+        if !full.had_errors() {
+            break;
+        }
+
+        let diags = produce_diagnostic_messages(&masked, &full, filename, source_context);
+        let next = diags
+            .into_iter()
+            .filter(|d| {
+                d.location
+                    .as_ref()
+                    .map(|l| l.start_offset() >= resync)
+                    .unwrap_or(false)
+            })
+            .min_by_key(|d| {
+                d.location
+                    .as_ref()
+                    .map(|l| l.start_offset())
+                    .unwrap_or(usize::MAX)
+            });
+        let Some(diag) = next else {
+            break;
+        };
+        let anchor = diag
+            .location
+            .as_ref()
+            .map(|l| l.start_offset())
+            .unwrap_or(resync);
+        collected.push(diag);
+        match next_block_start_after(input_bytes, anchor) {
+            Some(o) if o > resync => resync = o,
+            _ => break,
+        }
+    }
+    collected
+}
+
 pub fn read<T: Write>(
     input_bytes: &[u8],
     _loose: bool,
@@ -139,6 +269,33 @@ pub fn read<T: Write>(
                 let outer_nodes = get_outer_error_nodes(&error_nodes);
                 diagnostics =
                     prune_diagnostics_by_error_nodes(diagnostics, &error_nodes, &outer_nodes);
+            }
+
+            // The first parse stops at the first unrecoverable error and skips
+            // the rest of the document, so later blocks produce no diagnostics.
+            // Re-parse with the handled prefix masked off to surface one
+            // diagnostic per subsequent failing block. Done after pruning (which
+            // operates on the original tree's ERROR nodes) so these curated
+            // downstream diagnostics are not discarded.
+            let first_anchor = diagnostics
+                .iter()
+                .filter_map(|d| d.location.as_ref().map(|l| l.start_offset()))
+                .max()
+                .unwrap_or(0);
+            let downstream = collect_downstream_diagnostics(
+                input_bytes,
+                first_anchor,
+                filename,
+                &context.source_context,
+            );
+            if !downstream.is_empty() {
+                diagnostics.extend(downstream);
+                diagnostics.sort_by_key(|d| d.location.as_ref().map_or(0, |l| l.start_offset()));
+                diagnostics.dedup_by(|a, b| {
+                    a.location.as_ref().map(|l| l.start_offset())
+                        == b.location.as_ref().map(|l| l.start_offset())
+                        && a.code == b.code
+                });
             }
 
             return Err(diagnostics);
